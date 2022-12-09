@@ -325,13 +325,6 @@ def create_journal(request):
 
     session.run (q,Dict)
 
-    q="""(jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)-[:STUDIED]->(h:Hypothesis)
-    where j.doi=$referenceDOI 
-    MERGE (jp)-[:STUDIED]->(h)"""
-
-    session.run (q,Dict)
-
-
 
     q="""MATCH (c:Construct), (iv:`Construct Role`:`Independent Variable`)
     WHERE c.ConstructRole = 'IndependentVariable' and c.doi=$referenceDOI
@@ -435,6 +428,11 @@ def create_journal(request):
     MERGE (p)-[:STUDIED]->(c)"""
 
     session.run (q,Dict)
+    
+    q="""MATCH (jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)-[:STUDIED]->(h:Hypothesis)
+    where j.doi=$referenceDOI 
+    MERGE (jp)-[:STUDIED]->(h)"""
 
+    session.run (q,Dict)
     return Response({"status":"ok"})
 
