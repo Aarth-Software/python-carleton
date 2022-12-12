@@ -229,210 +229,64 @@ def create_journal(request):
 
     session.run (q,Dict)
 
-    q="""match (k:Keyword),(j:JournalReference)
-    where k.doi=j.doi and j.doi=$referenceDOI
-    merge (j)-[:HAS]->(k)"""
-
-    session.run (q,Dict)
-
-    # q="""match (k:Funding),(j:JournalReference)
-    # where k.fundingID=j.fundingID and j.doi=$referenceDOI
-    # merge (j)<-[:FUNDED]-(k)"""
-
-    # session.run (q,Dict)
-
-    q="""match (k:Keyword ),(j:JournalReference)
-    where k.doi=j.doi and j.doi=$referenceDOI
-    merge (j)-[:HAS]->(k)"""
-
-    session.run (q,Dict)
-
-    q="""match (a:Author), (j:JournalReference)
-    where a.scopusID in j.authorScopusID and a.scopusID in $authorScopusID
-    merge (j)-[:AUTHORED_BY]->(a)"""
-
-    session.run (q,Dict)
-
-    q="""match (a:BibliographicReference), (j:JournalReference)
-    where a.citingDOI = j.doi and j.doi=$referenceDOI
-    merge (j)-[:CITED]->(a)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (j:JournalReference)-[:AUTHORED_BY]->(a:Author), (af:Affiliation)
-    WHERE a.scopusID in af.authorScopusID  and j.doi=$referenceDOI
-    merge (af)-[:PRODUCED]->(j)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (j:JournalReference), (h:Hypothesis)
-    WHERE j.doi=h.doi and j.doi=$referenceDOI 
-    merge (j)-[:STUDIED]->(h)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (j:JournalReference)-[:AUTHORED_BY]->(a:Author), (p:Proposition)
-    WHERE a.scopusID in p.authorScopusID and j.doi=$referenceDOI and a.scopusID in $authorScopusID  
-    merge (j)-[:STUDIED]->(p)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (j:JournalReference)-[:AUTHORED_BY]->(a:Author), (c:Construct)
-    WHERE a.scopusID in c.authorScopusID and j.doi=$referenceDOI and a.scopusID in $authorScopusID   
-    merge (j)-[:STUDIED]->(c)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (a:Author), (p:Proposition)
-    WHERE a.scopusID in p.authorScopusID and a.scopusID in $authorScopusID   
-    merge (a)-[:STUDIED]->(p)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (a:Author), (c:Construct)
-    WHERE a.scopusID in c.authorScopusID and a.scopusID in $authorScopusID    
-    merge (a)-[:STUDIED]->(c)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (p:Publisher), (j:JournalPublication)
-    WHERE p.name = j.publisherName and p.name=$vPublisherName
-    MERGE (p)<-[:PUBLISHED_BY]-(j)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (a:Author)<-[:AUTHORED_BY]-(j:JournalReference), (jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)
-    where j.doi=$referenceDOI
-    MERGE (a)-[:CONTRIBUTED_TO]->(jp)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (a:Author)-[:CONTRIBUTED_TO]->(j:JournalPublication)-[:PUBLISHED_BY]->(p:Publisher)
-    where a.scopusID in $authorScopusID   
-    MERGE (a)-[:CONTRIBUTED_TO]->(p)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)-[:HAS]->(k:Keyword)
-    where j.doi=$referenceDOI
-    MERGE (jp)-[:HAS]->(k)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (h:Hypothesis), (a:Author)
-    WHERE a.scopusID in h.authorScopusID   and a.scopusID in $authorScopusID  
-    MERGE (h)<-[:STUDIED]-(a)"""
-
-    session.run (q,Dict)
-
-
-    q="""MATCH (c:Construct), (iv:`Construct Role`:`Independent Variable`)
-    WHERE c.ConstructRole = 'IndependentVariable' and c.doi=$referenceDOI
-    MERGE (c)-[:AS]->(iv)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (c:Construct), (dv:`Construct Role`:`Dependent Variable`)
-    WHERE c.ConstructRole = 'DependentVariable' and c.doi=$referenceDOI
-    MERGE (c)-[:AS]->(dv)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (c:Construct), (mv:`Construct Role`:`Mediator Variable`)
-    WHERE c.ConstructRole = 'MediatorVariable' and c.doi=$referenceDOI
-    MERGE (c)-[:AS]->(mv)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (c:Construct), (mv:`Construct Role`:`Moderator Variable`)
-    WHERE c.ConstructRole = 'ModeratorVariable' and c.doi=$referenceDOI
-    MERGE (c)-[:AS]->(mv)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)-[:STUDIED]->(c:Construct)
-    where j.doi=$referenceDOI
-    MERGE (jp)-[:STUDIED]->(c)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)-[:STUDIED]->(h:Hypothesis)
-    where j.doi=$referenceDOI
-    MERGE (jp)-[:STUDIED]->(h)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)-[:STUDIED]->(p:Proposition)
-    where j.doi=$referenceDOI
-    MERGE (jp)-[:STUDIED]->(p)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH(f:Funding)-[:FUNDED]->(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
-    where j.doi=$referenceDOI
-    MERGE (a)-[:FUNDED_BY]->(f)"""
-
-    session.run (q,Dict)
-
-    
-    q="""MATCH (d:Data)<-[:USED]-(j:JournalReference)-[:APPEARED_IN]->(jp:JournalPublication)
-    where j.doi=$referenceDOI
-    MERGE (d)<-[:USED]-(jp)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (d:Data)<-[:USED]-(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
-    where j.doi=$referenceDOI
-    MERGE (d)<-[:USED]-(a)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (m:Method)<-[:USED]-(j:JournalReference)-[:APPEARED_IN]->(jp:JournalPublication)
-    where j.doi=$referenceDOI
-    MERGE (m)<-[:USED]-(jp)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (m:Method)<-[:USED]-(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
-    where j.doi=$referenceDOI
-    MERGE (m)<-[:USED]-(a)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (k:Keyword)<-[:HAS]-(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
-    where j.doi=$referenceDOI
-    MERGE (a)-[:HAS]->(k)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (k:Keyword)<-[:HAS]-(j:JournalReference)-[APPEARED_IN]->(jp:JournalPublication)-[:PUBLISHED_BY]->(p:Publisher)
-    where j.doi=$referenceDOI
-    MERGE (p)-[:HAS]->(k)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (p:Proposition)<-[:STUDIED]-(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
-    where j.doi=$referenceDOI
-    MERGE (a)-[:STUDIED]->(p)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (c:Construct)<-[:STUDIED]-(j:JournalReference), (j:JournalReference)-[:STUDIED]->(h:Hypothesis)
-    where j.doi=$referenceDOI and c.hypothesisID=h.hypothesisID
-    MERGE (h)-[:STUDIED]->(c)"""
-
-    session.run (q,Dict)
-
-    q="""MATCH (c:Construct)<-[:STUDIED]-(j:JournalReference), (j:JournalReference)-[:STUDIED]->(p:Proposition)
-    where j.doi=$referenceDOI and c.propositionID=p.propositionID
-    MERGE (p)-[:STUDIED]->(c)"""
-
-    session.run (q,Dict)
-    
-    q="""MATCH (jp:JournalPublication)<-[:APPEARED_IN]-(j:JournalReference)-[:STUDIED]->(h:Hypothesis)
+    q="""CALL apoc.cypher.runMany('match(j:JournalReference)-[:USED]->(d:Data),(j)-[:APPEARED_IN]->(jp:JournalPublication),(jp)-[:PUBLISHED_BY]->(p:Publisher),(j)<-[:FUNDED]-(f:Funding),(a:Author),(b:BibliographicReference),(j)-[:USED]->(m:Method)
+    where b.citingDOI = j.doi and (a.scopusID in j.authorScopusID ) and j.doi=$referenceDOI 
+    merge (j)-[:AUTHORED_BY]->(a)
+    merge (j)-[:CITED]->(b)
+    MERGE (a)-[:CONTRIBUTED_TO]->(jp)
+    MERGE (a)-[:CONTRIBUTED_TO]->(p)
+    MERGE (a)-[:FUNDED_BY]->(f)
+    MERGE (d)<-[:USED]-(a)
+    MERGE (m)<-[:USED]-(a);
+    match(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
+    where  j.doi=$referenceDOI 
+    match  (af:Affiliation), (c:Construct)
+    where  a.scopusID in af.authorScopusID and j.doi=c.doi 
+    merge (j)-[:STUDIED]->(c)
+    MERGE (jp)-[:STUDIED]->(c)
+    merge (af)-[:PRODUCED]->(j);
+    match(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
     where j.doi=$referenceDOI 
-    MERGE (jp)-[:STUDIED]->(h)"""
+    match (h:Hypothesis)
+    where j.doi=h.doi 
+    merge (j)-[:STUDIED]->(h)
+    MERGE (jp)-[:STUDIED]->(h)
+    MERGE (jp)-[:STUDIED]->(h);
+    match(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
+    where j.doi=$referenceDOI 
+    match (pr:Proposition)
+    where j.doi=pr.doi 
+    merge (jp)-[:STUDIED]->(pr)
+    merge (a)-[:STUDIED]->(pr)
+    merge (j)-[:STUDIED]->(pr);
+    match(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
+    where j.doi=$referenceDOI 
+    match (k:Keyword)
+    where  k.doi=j.doi 
+    merge (j)-[:HAS]->(k)
+    MERGE (jp)-[:HAS]->(k)
+    MERGE (a)-[:HAS]->(k)
+    MERGE (p)-[:HAS]->(k);
+    MATCH (c:Construct)<-[:STUDIED]-(j:JournalReference), (j:JournalReference)-[:STUDIED]->(h:Hypothesis)
+    where j.doi=$referenceDOI and c.hypothesisID=h.hypothesisID
+    MERGE (h)-[:STUDIED]->(c);
+    MATCH (c:Construct)<-[:STUDIED]-(j:JournalReference), (j:JournalReference)-[:STUDIED]->(p:Proposition)
+    where j.doi=$referenceDOI and c.propositionID=p.propositionID
+    MERGE (p)-[:STUDIED]->(c);
+    MATCH (c:Construct), (iv:`Construct Role`:`Independent Variable`)
+    WHERE c.ConstructRole = "IndependentVariable" and c.doi=$referenceDOI
+    MERGE (c)-[:AS]->(iv);
+    MATCH (c:Construct), (dv:`Construct Role`:`Dependent Variable`)
+    WHERE c.ConstructRole = "DependentVariable" and c.doi=$referenceDOI
+    MERGE (c)-[:AS]->(dv);
+    MATCH (c:Construct), (mv:`Construct Role`:`Mediator Variable`)
+    WHERE c.ConstructRole = "MediatorVariable" and c.doi=$referenceDOI
+    MERGE (c)-[:AS]->(mv);
+    MATCH (c:Construct), (mv:`Construct Role`:`Moderator Variable`)
+    WHERE c.ConstructRole = "ModeratorVariable" and c.doi=$referenceDOI
+    MERGE (c)-[:AS]->(mv);', {referenceDOI:$referenceDOI},{statistics: false});"""
 
     session.run (q,Dict)
+    print(str("relationsships created"))
     return Response({"status":"ok"})
 
