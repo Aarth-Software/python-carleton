@@ -5,10 +5,11 @@ from typing import Dict
 import os
 from dotenv import load_dotenv
 import sys
-
+import logging
 
 @api_view(["GET"])
 def get(request):
+    logger = setup_custom_logger('create_journal')
     load_dotenv()
     uri=str(os.getenv("uri"))
     user=str(os.getenv("user"))
@@ -27,6 +28,7 @@ def get(request):
 @api_view(["POST"])
 def create_journal(request):
     from typing import Dict
+    logger = setup_custom_logger('create_journal')
     load_dotenv()
     uri=str(os.getenv("uri"))
     user=str(os.getenv("user"))
@@ -114,6 +116,7 @@ def create_journal(request):
     Dict_all={"rJournalReference":rJournalReference,"rYear":rYear,"rJournalPublication":rJournalPublication,"rPublisher":rPublisher,"rFunding":rFunding,"rData":rData,"rMethod":rMethod}
 
     #Dict_all={"rJournalReference":rJournalReference,"rYear":rYear,"rConceptual":rConceptual,"rJournalPublication":rJournalPublication,"rPublisher":rPublisher,"rEmpirical":rEmpirical,"rKeyword":rKeyword,"rFunding":rFunding,"rData":rData,"rMethod":rMethod}
+    logger.info('Creation of nodes set 1')
     session.run(qall,Dict_all)
     # (JournalReference if isEmpirical =true)-[:HAS_TYPE]->(Empirical) 
     # (JournalReference if  isConceptual =true )-[:HAS_TYPE]->(Conceptual)
@@ -126,7 +129,7 @@ def create_journal(request):
         if isinstance(data[key],list) and len(data[key])!=0:
             complex_keys.append(key)
     print(complex_keys)
-
+    logger.info('Creation of nodes set 2')
     for complex_key in complex_keys:
             print(complex_key)
             if complex_key=="Author":
@@ -228,7 +231,7 @@ def create_journal(request):
     MERGE (mv2:`Construct Role`:`Mediator Variable`)"""
 
     session.run (q,Dict)
-
+    logger.info('Creation of relationships start')
     q="""CALL apoc.cypher.runMany('match(j:JournalReference)-[:USED]->(d:Data),(j)-[:APPEARED_IN]->(jp:JournalPublication),(jp)-[:PUBLISHED_BY]->(p:Publisher),(j)<-[:FUNDED]-(f:Funding),(a:Author),(b:BibliographicReference),(j)-[:USED]->(m:Method)
     where b.citingDOI = j.doi and (a.scopusID in j.authorScopusID ) and j.doi=$referenceDOI 
     merge (j)-[:AUTHORED_BY]->(a)
@@ -287,6 +290,18 @@ def create_journal(request):
     MERGE (c)-[:AS]->(mv);', {referenceDOI:$referenceDOI},{statistics: false});"""
 
     session.run (q,Dict)
-    print(str("relationsships created"))
+    logger.info('Creation of relationships ended')
     return Response({"status":"ok"})
 
+def setup_custom_logger(name):
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    handler = logging.FileHandler('log.txt', mode='w')
+    handler.setFormatter(formatter)
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.addHandler(screen_handler)
+    return logger
