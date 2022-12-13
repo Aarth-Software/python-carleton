@@ -101,7 +101,6 @@ def create_journal(request):
     for key in keys:
         if isinstance(data[key],list) and len(data[key])!=0:
             complex_keys.append(key)
-    print(complex_keys)
     qauthor=""
     authors=[]
     qbib=""
@@ -118,11 +117,8 @@ def create_journal(request):
     constructs=[]
     logger.info('Creation of nodes set 2')
     for complex_key in complex_keys:
-            print(complex_key)
             if complex_key=="Author":
-                print("here")
                 authors=data[complex_key]
-                print(authors)
                 qauthor="""
                 UNWIND $authors as row
                 create(a:Author) set a+=row;
