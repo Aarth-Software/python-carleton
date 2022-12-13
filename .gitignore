@@ -1,4 +1,5 @@
 carleton_neo4j/.env
+.env
 .DS_Store
 log.txt
 api/__pycache__/
