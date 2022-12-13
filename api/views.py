@@ -14,7 +14,6 @@ def get(request):
     uri=str(os.getenv("uri"))
     user=str(os.getenv("user"))
     pwd=str(os.getenv("pwd"))
-    print (uri)
     driver=GraphDatabase.driver(uri=uri,auth=(user,pwd))
     session=driver.session()
     q1="""
@@ -37,15 +36,12 @@ def create_journal(request):
     session=driver.session()
     data=request.data
     keys=list(data.keys())
-    print(keys)
     simple_keys=[]
     for key in keys:
-    #print(type(data[key]))
         if isinstance(data[key],Dict) or isinstance(data[key],str):
             simple_keys.append(key)
 
-    for simple_key in simple_keys: 
-            print(simple_key)       
+    for simple_key in simple_keys:     
             if simple_key == "JournalReference":
                 rJournalReference=data[simple_key]
                 referenceDOI=rJournalReference['doi']
@@ -78,20 +74,6 @@ def create_journal(request):
                 print("invalid data")
                 sys.exit()
 
-    # qFunding="""merge(h:Funding {name:$rFunding.name}) 
-    # on create 
-    # set h=$rFunding,h.fundingID=apoc.create.uuid()
-    # return h.fundingID"""
-    # print (qFunding)
-    # Dict_funding={"rFunding":rFunding}
-    # fundingResult=session.run(qFunding,Dict_funding)
-    # fundingValue  = fundingResult.value(0)
-    # rFundinID = fundingValue[0]
-
-    # print (rFundinID)
-
-    # create(a)<-[:FUNDED]-(h)
-    # set a.fundingID=h.fundingID
     qall="""
     merge (a:JournalReference {doi:$rJournalReference.doi}) 
     on create 
@@ -115,20 +97,25 @@ def create_journal(request):
     """
     Dict_all={"rJournalReference":rJournalReference,"rYear":rYear,"rJournalPublication":rJournalPublication,"rPublisher":rPublisher,"rFunding":rFunding,"rData":rData,"rMethod":rMethod}
 
-    #Dict_all={"rJournalReference":rJournalReference,"rYear":rYear,"rConceptual":rConceptual,"rJournalPublication":rJournalPublication,"rPublisher":rPublisher,"rEmpirical":rEmpirical,"rKeyword":rKeyword,"rFunding":rFunding,"rData":rData,"rMethod":rMethod}
-    logger.info('Creation of nodes set 1')
-    session.run(qall,Dict_all)
-    # (JournalReference if isEmpirical =true)-[:HAS_TYPE]->(Empirical) 
-    # (JournalReference if  isConceptual =true )-[:HAS_TYPE]->(Conceptual)
-    # keyword match with doi to JournalReference [:HAS]
-    # match JournalReference authorScopusID with author [AUTHORED_BY]
-    # match Affiliation authorScopusID with author [WITH]
-
     complex_keys=[]
     for key in keys:
         if isinstance(data[key],list) and len(data[key])!=0:
             complex_keys.append(key)
     print(complex_keys)
+    qauthor=""
+    authors=[]
+    qbib=""
+    bibliographicReferences=[]
+    qhyp=""
+    hypothesiss=[]
+    qprop=""
+    propositions=[]
+    qafiliation=""
+    affiliations=[]
+    qkey=""
+    keywords=[]
+    qcons=""
+    constructs=[]
     logger.info('Creation of nodes set 2')
     for complex_key in complex_keys:
             print(complex_key)
@@ -136,94 +123,58 @@ def create_journal(request):
                 print("here")
                 authors=data[complex_key]
                 print(authors)
-                for author in authors:
-                    rAuthor=author
-                    qauthor="""
-                    create(a:Author) set a=$rAuthor
-                    """
-                    try:
-                        Dict={"rAuthor":rAuthor}
-                        session.run(qauthor,Dict)
-                    except Exception as e:
-                        print(str(e))
+                qauthor="""
+                UNWIND $authors as row
+                create(a:Author) set a+=row;
+                """
             elif complex_key=="BibliographicReference":
-                bibliographicReferences=data[complex_key]
-                for bibliographicReference in bibliographicReferences:
-                    rBibliographicReference=bibliographicReference
-                    qbib="""
-                    create(a:BibliographicReference) set a=$rBibliographicReference
-                    """
-                    try:
-                        Dict={"rBibliographicReference":rBibliographicReference}
-                        session.run(qbib,Dict)
-                    except Exception as e:
-                        print(str(e))
+                bibliographicReferences=data[complex_key]           
+                qbib="""
+                UNWIND $bibliographicReferences AS row
+                CREATE (b:BibliographicReference)
+                SET b += row ;
+                """
             elif complex_key=="Hypothesis":
                 hypothesiss=data[complex_key]
-                for hypothesis in hypothesiss:
-                    rHypothesis=hypothesis
-                    qhyp="""
-                    create(a:Hypothesis) set a=$rHypothesis
-                    """
-                    try:
-                        Dict={"rHypothesis":rHypothesis}
-                        session.run(qhyp,Dict)
-                    except Exception as e:
-                        print(str(e))
+                qhyp="""
+                UNWIND $hypothesiss AS row
+                create(h:Hypothesis) set h +=row;
+                """
+
             elif complex_key=="Proposition":
                 propositions=data[complex_key]
-                for proposition in propositions:
-                    rProposition=proposition
-                    qprop="""
-                    create(a:Proposition) set a=$rProposition
-                    """
-                    try:
-                        Dict={"rProposition":rProposition}
-                        session.run(qprop,Dict)
-                    except Exception as e:
-                        print(str(e))
+                qprop="""
+                UNWIND $propositions AS row
+                create(p:Proposition) set p+=row;
+                """
             elif complex_key=="Affiliation":
                 Affiliations=data[complex_key]
-                for Affiliation in Affiliations:
-                    rAffiliation=Affiliation
-                    qbib="""
-                    create(a:Affiliation) set a=$rAffiliation
-                    """
-                    try:
-                        Dict={"rAffiliation":rAffiliation}
-                        session.run(qbib,Dict)
-                    except Exception as e:
-                        print(str(e))
+                qafiliation="""
+                unwind $affiliations as row
+                create(af:Affiliation) set af+=row;
+                """
             elif complex_key=="Keyword":
-                Keywords=data[complex_key]
-                for Keyword in Keywords:
-                    rKeyword=Keyword
-                    qbib="""
-                    create(a:Keyword) set a=$rKeyword
-                    """
-                    try:
-                        Dict={"rKeyword":rKeyword}
-                        session.run(qbib,Dict)
-                    except Exception as e:
-                        print(str(e))
+                keywords=data[complex_key]
+                qkey="""
+                unwind $keywords as row
+                create(k:Keyword) set k+=row;
+                """
             elif complex_key=="Construct":
-                Constructs=data[complex_key]
-                for Construct in Constructs:
-                    rConstruct=Construct
-                    qbib="""
-                    create(a:Construct) set a=$rConstruct
-                    """
-                    try:
-                        Dict={"rConstruct":rConstruct}
-                        session.run(qbib,Dict)
-                    except Exception as e:
-                        print(str(e))
+                constructs=data[complex_key]
+                qcons="""
+                unwind $constructs as row
+                create(c:Construct) set c+=row;
+                """
             else:
                 print(complex_key)
                 print("invalid data")
                 sys.exit()
+    dict_complex={"authors":authors,"bibliographicReferences":bibliographicReferences,"hypothesiss":hypothesiss,"propositions":propositions,"affiliations":affiliations,"keywords":keywords,"constructs":constructs}
+    query_all="""CALL apoc.cypher.runMany('""" + qauthor+ qbib + qhyp + qprop + qafiliation + qkey + qcons +"""', {authors:$authors,bibliographicReferences:$bibliographicReferences,hypothesiss:$hypothesiss,propositions:$propositions,affiliations:$affiliations,keywords:$keywords,constructs:$constructs},{statistics: false});"""
+
 
     Dict={"referenceDOI":referenceDOI,"authorScopusID":authorScopusID,"vPublisherName":vPublisherName}    
+
 
     q="""MERGE (iv:`Construct Role`:`Independent Variable`)
     MERGE (dv:`Construct Role`:`Dependent Variable`)
@@ -288,9 +239,17 @@ def create_journal(request):
     MATCH (c:Construct), (mv:`Construct Role`:`Moderator Variable`)
     WHERE c.ConstructRole = "ModeratorVariable" and c.doi=$referenceDOI
     MERGE (c)-[:AS]->(mv);', {referenceDOI:$referenceDOI},{statistics: false});"""
+    try:
+        logger.info('Creation of nodes set 1')
+        session.run(qall,Dict_all)
+        logger.info('Creation of nodes set 2')
+        session.run(query_all,dict_complex)
+        logger.info(str("successfull node creation"))
+        session.run (q,Dict)
+        logger.info('Creation of relationships ended')
+    except Exception as e:
+        print(str(e))
 
-    session.run (q,Dict)
-    logger.info('Creation of relationships ended')
     return Response({"status":"ok"})
 
 def setup_custom_logger(name):
