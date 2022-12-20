@@ -4,3 +4,4 @@ carleton_neo4j/.env
 log.txt
 api/__pycache__/
 carleton_neo4j/__pycache__/
+poetry.lock

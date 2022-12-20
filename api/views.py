@@ -1,7 +1,7 @@
+import time
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from neo4j import GraphDatabase
-from typing import Dict
 import os
 from dotenv import load_dotenv
 import sys
@@ -27,6 +27,7 @@ def get(request):
 @api_view(["POST"])
 def create_journal(request):
     from typing import Dict
+    import json
     logger = setup_custom_logger('create_journal')
     load_dotenv()
     uri=str(os.getenv("uri"))
@@ -34,7 +35,8 @@ def create_journal(request):
     pwd=str(os.getenv("pwd"))
     driver=GraphDatabase.driver(uri=uri,auth=(user,pwd))
     session=driver.session()
-    data=request.data
+    data=request.data #.decode('utf-8')
+    # data= json.load(codecs.decode(request.data,'utf-8-sig'))
     keys=list(data.keys())
     simple_keys=[]
     for key in keys:
@@ -45,6 +47,8 @@ def create_journal(request):
             if simple_key == "JournalReference":
                 rJournalReference=data[simple_key]
                 referenceDOI=rJournalReference['doi']
+                referenceTitle=rJournalReference['title']
+                referenceDOIURL=rJournalReference['doiURL']
                 authorScopusID=rJournalReference['authorScopusID']
             elif simple_key=="Affiliation":
                 rAffiliation=data[simple_key]
@@ -90,18 +94,22 @@ def create_journal(request):
     create(a)-[:IN]->(b)
     create(a)-[:APPEARED_IN]->(d)
     create(d)-[:PUBLISHED_BY]->(e)
-    create(a)-[:USED]->(j)
+    create(a)-[r1:USED]->(j)
+    set r1.referenceTitle=$referenceTitle, r1.referenceDOIURL=$referenceDOIURL
     create(d)-[:USED]->(j)
-    create(d)-[:USED]->(i)
+    create(d)-[r2:USED]->(i)
+    set r2.referenceTitle=$referenceTitle, r2.referenceDOIURL=$referenceDOIURL
     create(a)<-[:FUNDED]-(h)
     """
-    Dict_all={"rJournalReference":rJournalReference,"rYear":rYear,"rJournalPublication":rJournalPublication,"rPublisher":rPublisher,"rFunding":rFunding,"rData":rData,"rMethod":rMethod}
+    Dict_all={"rJournalReference":rJournalReference,"rYear":rYear,"rJournalPublication":rJournalPublication,
+    "rPublisher":rPublisher,"rFunding":rFunding,"rData":rData,"rMethod":rMethod,
+    "referenceTitle":referenceTitle,
+    "referenceDOIURL":referenceDOIURL}
 
     complex_keys=[]
     for key in keys:
         if isinstance(data[key],list) and len(data[key])!=0:
             complex_keys.append(key)
-    print(complex_keys)
     qauthor=""
     authors=[]
     qbib=""
@@ -116,13 +124,10 @@ def create_journal(request):
     keywords=[]
     qcons=""
     constructs=[]
-    logger.info('Creation of nodes set 2')
+
     for complex_key in complex_keys:
-            print(complex_key)
             if complex_key=="Author":
-                print("here")
                 authors=data[complex_key]
-                print(authors)
                 qauthor="""
                 UNWIND $authors as row
                 create(a:Author) set a+=row;
@@ -169,11 +174,21 @@ def create_journal(request):
                 print(complex_key)
                 print("invalid data")
                 sys.exit()
-    dict_complex={"authors":authors,"bibliographicReferences":bibliographicReferences,"hypothesiss":hypothesiss,"propositions":propositions,"affiliations":affiliations,"keywords":keywords,"constructs":constructs}
-    query_all="""CALL apoc.cypher.runMany('""" + qauthor+ qbib + qhyp + qprop + qafiliation + qkey + qcons +"""', {authors:$authors,bibliographicReferences:$bibliographicReferences,hypothesiss:$hypothesiss,propositions:$propositions,affiliations:$affiliations,keywords:$keywords,constructs:$constructs},{statistics: false});"""
+    dict_complex={"authors":authors,
+    "bibliographicReferences":bibliographicReferences,
+    "hypothesiss":hypothesiss,
+    "propositions":propositions,
+    "affiliations":affiliations,
+    "keywords":keywords,
+    "constructs":constructs}
+    query_all="""CALL apoc.cypher.runMany('""" + qauthor+ qbib + qhyp + qprop + qafiliation + qkey + qcons +"""',{authors:$authors,bibliographicReferences:$bibliographicReferences,hypothesiss:$hypothesiss,propositions:$propositions,affiliations:$affiliations,keywords:$keywords,constructs:$constructs},{statistics: false});"""
 
 
-    Dict={"referenceDOI":referenceDOI,"authorScopusID":authorScopusID,"vPublisherName":vPublisherName}    
+    Dict={"referenceDOI":referenceDOI,
+    "authorScopusID":authorScopusID,
+    "vPublisherName":vPublisherName,
+    "referenceTitle":referenceTitle,
+    "referenceDOIURL":referenceDOIURL}    
 
 
     q="""MERGE (iv:`Construct Role`:`Independent Variable`)
@@ -182,8 +197,10 @@ def create_journal(request):
     MERGE (mv2:`Construct Role`:`Mediator Variable`)"""
 
     session.run (q,Dict)
-    logger.info('Creation of relationships start')
-    q="""CALL apoc.cypher.runMany('match(j:JournalReference)-[:USED]->(d:Data),(j)-[:APPEARED_IN]->(jp:JournalPublication),(jp)-[:PUBLISHED_BY]->(p:Publisher),(j)<-[:FUNDED]-(f:Funding),(a:Author),(b:BibliographicReference),(j)-[:USED]->(m:Method)
+
+    q="""CALL apoc.cypher.runMany('match(j:JournalReference)-[:USED]->(d:Data),
+    (j)-[:APPEARED_IN]->(jp:JournalPublication),(jp)-[:PUBLISHED_BY]->(p:Publisher),
+    (j)<-[:FUNDED]-(f:Funding),(a:Author),(b:BibliographicReference),(j)-[:USED]->(m:Method)
     where b.citingDOI = j.doi and (a.scopusID in j.authorScopusID ) and j.doi=$referenceDOI 
     merge (j)-[:AUTHORED_BY]->(a)
     merge (j)-[:CITED]->(b)
@@ -205,13 +222,15 @@ def create_journal(request):
     where j.doi=h.doi 
     merge (j)-[:STUDIED]->(h)
     MERGE (jp)-[:STUDIED]->(h)
-    MERGE (jp)-[:STUDIED]->(h);
+    MERGE (a)-[r:STUDIED]->(h)
+    set r.referenceTitle=$referenceTitle, r.referenceDOIURL=$referenceDOIURL;
     match(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
     where j.doi=$referenceDOI 
     match (pr:Proposition)
     where j.doi=pr.doi 
     merge (jp)-[:STUDIED]->(pr)
-    merge (a)-[:STUDIED]->(pr)
+    merge (a)-[r:STUDIED]->(pr)
+    set r.referenceTitle=$referenceTitle, r.referenceDOIURL=$referenceDOIURL
     merge (j)-[:STUDIED]->(pr);
     match(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
     where j.doi=$referenceDOI 
@@ -219,14 +238,23 @@ def create_journal(request):
     where  k.doi=j.doi 
     merge (j)-[:HAS]->(k)
     MERGE (jp)-[:HAS]->(k)
-    MERGE (a)-[:HAS]->(k)
-    MERGE (p)-[:HAS]->(k);
+    MERGE (a)-[r1:HAS]->(k)
+    set r1.referenceTitle=$referenceTitle, r1.referenceDOIURL=$referenceDOIURL
+    MERGE (p)-[:HAS]->(k)
+    MERGE (a)-[r2:USED]->(k:Keyword)
+    set r2.referenceTitle=$referenceTitle, r2.referenceDOIURL=$referenceDOIURL;
+    MATCH (c:Construct)<-[:STUDIED]-(j:JournalReference)-[:AUTHORED_BY]->(a:Author)
+    where j.doi=$referenceDOI 
+    MERGE (a)-[r:STUDIED]->(c)
+    set r.referenceTitle=$referenceTitle, r.referenceDOIURL=$referenceDOIURL;
     MATCH (c:Construct)<-[:STUDIED]-(j:JournalReference), (j:JournalReference)-[:STUDIED]->(h:Hypothesis)
     where j.doi=$referenceDOI and c.hypothesisID=h.hypothesisID
-    MERGE (h)-[:STUDIED]->(c);
+    MERGE (h)-[r:STUDIED]->(c)
+    set r.referenceTitle=$referenceTitle, r.referenceDOIURL=$referenceDOIURL;
     MATCH (c:Construct)<-[:STUDIED]-(j:JournalReference), (j:JournalReference)-[:STUDIED]->(p:Proposition)
     where j.doi=$referenceDOI and c.propositionID=p.propositionID
-    MERGE (p)-[:STUDIED]->(c);
+    MERGE (p)-[r:STUDIED]->(c)
+    set r.referenceTitle=$referenceTitle, r.referenceDOIURL=$referenceDOIURL;
     MATCH (c:Construct), (iv:`Construct Role`:`Independent Variable`)
     WHERE c.ConstructRole = "IndependentVariable" and c.doi=$referenceDOI
     MERGE (c)-[:AS]->(iv);
@@ -238,18 +266,17 @@ def create_journal(request):
     MERGE (c)-[:AS]->(mv);
     MATCH (c:Construct), (mv:`Construct Role`:`Moderator Variable`)
     WHERE c.ConstructRole = "ModeratorVariable" and c.doi=$referenceDOI
-    MERGE (c)-[:AS]->(mv);', {referenceDOI:$referenceDOI},{statistics: false});"""
-    try:
-        logger.info('Creation of nodes set 1')
+    MERGE (c)-[:AS]->(mv);', {referenceDOI:$referenceDOI, referenceTitle:$referenceTitle,
+    referenceDOIURL:$referenceDOIURL},{statistics: false});"""
+    startTime = time.perf_counter()
+    try:       
         session.run(qall,Dict_all)
-        logger.info('Creation of nodes set 2')
         session.run(query_all,dict_complex)
-        logger.info(str("successfull node creation"))
         session.run (q,Dict)
-        logger.info('Creation of relationships ended')
     except Exception as e:
         print(str(e))
-
+    request_time = time.perf_counter() - startTime
+    logger.info("Request completed in {0:.0f}ms".format(request_time))
     return Response({"status":"ok"})
 
 def setup_custom_logger(name):
